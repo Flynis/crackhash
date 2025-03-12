@@ -1,9 +1,11 @@
 import express from 'express';
 import Manager from './manager';
+import 'dotenv/config';
      
 const app = express();
 const port = 3000;
-const manager = new Manager();
+const workersCount = process.env.WORKERS_COUNT;
+const manager = new Manager(workersCount);
 
 app.use(express.json());
 
@@ -19,9 +21,14 @@ app.post("/api/hash/crack", function(req, res) {
 
     let requestId = manager.handleCrackRequest(crackRequest);
 
-    res.send({
-        requestId: requestId        
-    });
+    if (requestId) {
+        res.send({
+            requestId: requestId        
+        });
+    } else {
+        res.sendStatus(500);
+    }
+    
 });
 
 app.get("/api/hash/status:requestId", function(req, res) {

@@ -1,0 +1,13 @@
+version: '3'
+services:
+  worker:
+    build: ./worker
+    deploy:
+      mode: replicated
+      replicas: ${WORKERS_COUNT}
+  manager:
+    build: ./manager
+    ports:
+      - "8000:3000"
+    environment:
+      - WORKERS_COUNT=${WORKERS_COUNT}

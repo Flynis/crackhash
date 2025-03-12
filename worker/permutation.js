@@ -1,31 +1,43 @@
-
 export default class Permutation {
-    alphabet = "";
+    n = 0;
 
-    constructor(alphabet) {
-        this.alphabet = alphabet;
-    }
-
-    count(length) {
-        return Math.pow(this.alphabet.length, length);
+    /**
+     * @param {*} n set cardinality
+     */
+    constructor(n) {
+        this.n = n;
     }
 
     next(perm) {
+        const n = this.n;
+        const k = perm.length;
 
+        let i = k - 1;
+        while (i >= 0 && perm[i] == n - 1) {
+            perm[i] = 0;
+            i -= 1;
+        }
+            
+        if (i < 0) {
+            // perm was the last permutation
+            return false;
+        } else {
+            perm[i] += 1;
+        }
+
+        return true;
     }
 
-    at(index, length) {
-        const n = this.alphabet.length;
-        const zero = this.alphabet[0];
-        const perm = zero.repeat(length);
+    at(index, k) {
+        const perm = Array(k).fill(0);
+        const n = this.n;
 
         let i = index;
-        let j = length;
+        let j = k - 1;
         while(i) {
             const digit = i % n;
-            const char = this.alphabet[digit];
-            perm[j] = char;
-            i /= n;
+            perm[j] = digit;
+            i = Math.floor(i / n);
             j -= 1;
         }
 
