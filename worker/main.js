@@ -20,9 +20,10 @@ app.post("/internal/api/worker/hash/crack/task", function(req, res) {
         count: req.body.count
     };
 
-    worker.processTask(task);
-
+    console.log("Sending response");
     res.sendStatus(200);
+
+    worker.processTask(task);
 });
 
 app.listen(port, function() {

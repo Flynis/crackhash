@@ -3,10 +3,13 @@ import { md5 } from 'js-md5';
 
 export default class Worker {
 
-    async processTask(task) {
-        const result = await this.#crackHash(task);
+    processTask(task) {
+        console.log("Processing task");
+        console.log(task);
 
-        await fetch('manager:3000/internal/api/manager/hash/crack/request', {
+        const result = this.#crackHash(task);
+
+        fetch('manager:3000/internal/api/manager/hash/crack/request', {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'
@@ -15,11 +18,16 @@ export default class Worker {
                 requestId: task.requestId,
                 data: result
             })
+        }).catch((reason) => {
+            console.log(reason)
         });
+        console.log("Task completed");
     }
 
     #crackHash({hash, alphabet, start, count}) {
+        console.log("Starting brute force");
         const n = alphabet.length;
+        console.log(n);
         const permutation = new Permutation(n);
     
         let k = 1;
@@ -33,7 +41,7 @@ export default class Worker {
         const index = start - (threshold - permutationsCount(n, k));
         let p = permutation.at(index, k);
         while (count > 0) {
-            const word = permutationToWord(p);
+            const word = permutationToWord(p, alphabet);
             const h = md5(word);
             if (h == hash) {
                 result.push(word);
@@ -46,6 +54,8 @@ export default class Worker {
             }
         }
     
+        console.log("Result");
+        console.log(result);
         return result;
     }
 
@@ -56,5 +66,6 @@ function permutationsCount(n, k) {
 }
 
 function permutationToWord(perm, alphabet) {
-    return perm.map((x) => alphabet[x]);
+    const chars = perm.map((x) => alphabet[x]);
+    return chars.join("");
 }
