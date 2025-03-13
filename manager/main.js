@@ -1,5 +1,5 @@
 import express from 'express';
-import Manager from './manager';
+import Manager from './manager.js';
 import 'dotenv/config';
      
 const app = express();
@@ -31,8 +31,8 @@ app.post("/api/hash/crack", function(req, res) {
     }
 });
 
-app.get("/api/hash/status:requestId", function(req, res) {
-    const id = req.params.requestId;
+app.get("/api/hash/status", function(req, res) {
+    const id = req.query.requestId;
 
     if (!manager.hasRequest(id)) {
         return res.sendStatus(400);

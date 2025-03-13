@@ -9,7 +9,7 @@ export default class Worker {
 
         const result = this.#crackHash(task);
 
-        fetch('manager:3000/internal/api/manager/hash/crack/request', {
+        fetch('http://crackhash-manager-1:3000/internal/api/manager/hash/crack/request', {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'

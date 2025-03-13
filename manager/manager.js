@@ -43,7 +43,7 @@ export default class Manager {
     }
 
     getRequestStatus(requestId) {
-        const request = requests.get(requestId);
+        const request = this.requests.get(requestId);
         const data = (request.data.length > 0) ? request.data : null;
     
         const requestStatus = {
@@ -51,27 +51,32 @@ export default class Manager {
             data: data
         };
 
+        console.log(`Request status ${requestId}`);
+        console.log(requestStatus);
         return requestStatus;
     }
 
     updateRequestData(id, data) {
+        console.log(`Updating request ${id}`);
+        console.log(data);
         this.freeWorkers += 1;
 
-        const request = requests.get(id);
+        const request = this.requests.get(id);
 
         if (request.status == "ERROR") {
             return;
         }
 
-        request.data.push(data);
+        request.data.push(...data);
         if (this.freeWorkers == this.workersCount) {
             request.status = "READY";
+            console.log(`Request completed ${id}`);
             clearTimeout(request.timerId);
         }
     }
 
     #requestTimeoutExpired(requestId) {
-        const request = requests.get(requestId);
+        const request = this.requests.get(requestId);
 
         if (request.status != "READY") {
             request.status = "ERROR";
@@ -85,27 +90,29 @@ export default class Manager {
         const task = {
             requestId: requestId,
             hash: hash,
-            alphabet: alphabet,
+            alphabet: this.alphabet,
             start: 0,
             count: countPerTask
         };
     
-        for (let i = 0; i < workersCount - 1; i++) {
+        for (let i = 1; i < this.workersCount; i++) {
             this.#sendTask(i, task);
             task.start += countPerTask;
         }
     
         task.count = allPermsCount - task.start;
-        this.#sendTask(workersCount - 1, task);
+        this.#sendTask(this.workersCount, task);
     }
     
     #sendTask(worker, task) {
-        fetch(`worker${worker}:5000/internal/api/worker/hash/crack/task`, {
+        fetch(`http://crackhash-worker-${worker}:5000/internal/api/worker/hash/crack/task`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'
             },
             body: JSON.stringify(task)
+        }).catch((reason) => {
+            console.log(reason);
         }).then((_) => {
             console.log(`${worker} task sended`);
             this.freeWorkers -= 1;
