@@ -9,4 +9,4 @@ COPY ./package.json .
 RUN npm install
 COPY . .
 
-CMD ["node", "controller.js"]
+CMD ["node", "main.js"]

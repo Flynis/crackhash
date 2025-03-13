@@ -7,16 +7,18 @@ export default class Manager {
     freeWorkers = 0;
 
     constructor(workersCount) {
+        console.log(`Workers count = ${workersCount}`);
         this.workersCount = workersCount;
         this.freeWorkers = workersCount;
     }
 
-    async handleCrackRequest(crackRequest) {
+    handleCrackRequest(crackRequest) {
         const request = {
             hash: crackRequest.hash,
             maxLength: crackRequest.maxLength,
             status: "IN_PROGRESS",
-            data: []
+            data: new Array(),
+            timerId: 0
         }
 
         if (this.freeWorkers != this.workersCount) {
@@ -26,7 +28,12 @@ export default class Manager {
         const id = uuidv4();
         this.requests.set(id, request);
 
-        await sendTasks(this.workersCount, id, this.alphabet, crackRequest.hash, crackRequest.maxLength);
+        this.#sendTasks(id, crackRequest.hash, crackRequest.maxLength);
+
+        const delay = 6000; // ms
+        request.timerId = setTimeout(() => {
+            this.#requestTimeoutExpired(id);
+        }, delay);
 
         return id;
     }
@@ -47,9 +54,33 @@ export default class Manager {
         return requestStatus;
     }
 
-    #sendTasks(workersCount, requestId, alphabet, hash, maxLength) {
-        const allPermsCount = permutationsCount(alphabet.length, maxLength);
-        const countPerTask = Math.floor(allPermsCount / workersCount);
+    updateRequestData(id, data) {
+        this.freeWorkers += 1;
+
+        const request = requests.get(id);
+
+        if (request.status == "ERROR") {
+            return;
+        }
+
+        request.data.push(data);
+        if (this.freeWorkers == this.workersCount) {
+            request.status = "READY";
+            clearTimeout(request.timerId);
+        }
+    }
+
+    #requestTimeoutExpired(requestId) {
+        const request = requests.get(requestId);
+
+        if (request.status != "READY") {
+            request.status = "ERROR";
+        }
+    }
+
+    #sendTasks(requestId, hash, maxLength) {
+        const allPermsCount = permutationsCount(this.alphabet.length, maxLength);
+        const countPerTask = Math.floor(allPermsCount / this.workersCount);
     
         const task = {
             requestId: requestId,
@@ -60,21 +91,24 @@ export default class Manager {
         };
     
         for (let i = 0; i < workersCount - 1; i++) {
-            sendTask(i, task);
+            this.#sendTask(i, task);
             task.start += countPerTask;
         }
     
         task.count = allPermsCount - task.start;
-        sendTask(workersCount - 1, task);
+        this.#sendTask(workersCount - 1, task);
     }
     
     #sendTask(worker, task) {
-        fetch(`worker${worker}/internal/api/worker/hash/crack/task`, {
+        fetch(`worker${worker}:5000/internal/api/worker/hash/crack/task`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'
             },
             body: JSON.stringify(task)
+        }).then((_) => {
+            console.log(`${worker} task sended`);
+            this.freeWorkers -= 1;
         });
     }
 

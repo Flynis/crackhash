@@ -18,6 +18,7 @@ app.post("/api/hash/crack", function(req, res) {
         hash: req.body.hash,
         maxLength: req.body.maxLength
     };
+    console.log(crackRequest);
 
     let requestId = manager.handleCrackRequest(crackRequest);
 
@@ -28,7 +29,6 @@ app.post("/api/hash/crack", function(req, res) {
     } else {
         res.sendStatus(500);
     }
-    
 });
 
 app.get("/api/hash/status:requestId", function(req, res) {
@@ -41,6 +41,22 @@ app.get("/api/hash/status:requestId", function(req, res) {
     const requestStatus = manager.getRequestStatus(id);
 
     res.send(requestStatus);
+});
+
+app.patch("/internal/api/manager/hash/crack/request", function(req, res) {
+    if (!req.body) {
+        return res.sendStatus(400);
+    }
+
+    const requestId = req.body.requestId;
+    if (!manager.hasRequest(requestId)) {
+        return res.sendStatus(400);
+    }
+
+    const data = req.body.data;
+    manager.updateRequestData(requestId, data);
+
+    res.sendStatus(200);
 });
 
 app.listen(port, function() {

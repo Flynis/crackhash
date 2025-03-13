@@ -20,6 +20,8 @@ export default class Worker {
             })
         }).catch((reason) => {
             console.log(reason)
+        }).then((_) => {
+            console.log("Result sended");
         });
         console.log("Task completed");
     }
