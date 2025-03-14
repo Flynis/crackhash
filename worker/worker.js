@@ -1,14 +1,14 @@
 import Permutation from './permutation.js';
 import { md5 } from 'js-md5';
+import 'dotenv/config';
 
 export default class Worker {
+    managerUrl = process.env.MANAGER_URL;
 
     processTask(task) {
-        console.log("Processing task");
-
         const result = this.#crackHash(task);
 
-        fetch('http://crackhash-manager-1:3000/internal/api/manager/hash/crack/request', {
+        fetch(`${this.managerUrl}/internal/api/manager/hash/crack/request`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'
@@ -25,7 +25,6 @@ export default class Worker {
     }
 
     #crackHash({hash, alphabet, start, count}) {
-        console.log("Starting brute force");
         const n = alphabet.length;
         const permutation = new Permutation(n);
     
