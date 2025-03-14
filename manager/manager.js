@@ -30,7 +30,7 @@ export default class Manager {
 
         this.#sendTasks(id, crackRequest.hash, crackRequest.maxLength);
 
-        const delay = 6000; // ms
+        const delay = 60000; // ms
         request.timerId = setTimeout(() => {
             this.#requestTimeoutExpired(id);
         }, delay);
@@ -52,13 +52,11 @@ export default class Manager {
         };
 
         console.log(`Request status ${requestId}`);
-        console.log(requestStatus);
         return requestStatus;
     }
 
     updateRequestData(id, data) {
         console.log(`Updating request ${id}`);
-        console.log(data);
         this.freeWorkers += 1;
 
         const request = this.requests.get(id);
@@ -77,6 +75,7 @@ export default class Manager {
 
     #requestTimeoutExpired(requestId) {
         const request = this.requests.get(requestId);
+        console.log(`Request timeout expired ${requestId}`);
 
         if (request.status != "READY") {
             request.status = "ERROR";

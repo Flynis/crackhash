@@ -5,7 +5,6 @@ export default class Worker {
 
     processTask(task) {
         console.log("Processing task");
-        console.log(task);
 
         const result = this.#crackHash(task);
 
@@ -23,13 +22,11 @@ export default class Worker {
         }).then((_) => {
             console.log("Result sended");
         });
-        console.log("Task completed");
     }
 
     #crackHash({hash, alphabet, start, count}) {
         console.log("Starting brute force");
         const n = alphabet.length;
-        console.log(n);
         const permutation = new Permutation(n);
     
         let k = 1;
@@ -56,8 +53,7 @@ export default class Worker {
             }
         }
     
-        console.log("Result");
-        console.log(result);
+        console.log(`Possible words count = ${result.length}`);
         return result;
     }
 
