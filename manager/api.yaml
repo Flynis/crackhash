@@ -1,0 +1,86 @@
+openapi: 3.0.0
+info:
+  title: CrackHash API
+  description: CrackHash API
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Локальный сервер
+
+paths:
+  /api/hash/crack:
+    post:
+      summary: Запрос на взлом хэша
+      operationId: postCrackRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrackRequest'
+      responses:
+        '200':
+          description: Запрос принят на исполнение
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrackResponse'
+
+  /api/hash/status:
+    get:
+      summary: Узнать статус запроса
+      operationId: getCrackStatus
+      parameters: 
+      - name: requestId
+        in: query
+        description: Id запроса 
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Статус запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrackStatusResponse'
+
+components:
+  schemas:
+    CrackRequest:
+      type: object
+      properties:
+        hash:
+          type: string
+          example: e2fc714c4727ee9395f324cd2e7f331f
+        maxLength:
+          type: integer
+          example: 4
+      required:
+        - hash
+        - maxLength
+
+    CrackResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: 730a04e6-4de9-41f9-9d5b-53b88b17afac
+      required:
+        - requestId
+
+    CrackStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: READY
+        data:
+          type: array
+          items:
+            type: string
+          example: ["abcd"]
+      required:
+        - status
+        - data
+    
