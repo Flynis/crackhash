@@ -1,94 +1,75 @@
 import { v4 as uuidv4 } from 'uuid';
+import Request from './request.js';
+import 'dotenv/config';
 
 export default class Manager {
-    alphabet = "abcdefghijklmnopqrstuvwxyz1234567890";
-    requests = new Map();
-    workersCount = 0;
+    alphabet = process.env.ALPHABET;
+    timeout = process.env.TIMEOUT;
+    workersCount = process.env.WORKERS_COUNT;
+    workersHost = process.env.WORKERS_HOST;
+    workersPort = process.env.WORKERS_PORT;
     freeWorkers = 0;
+    requests = new Map();
 
-    constructor(workersCount) {
-        console.log(`Workers count = ${workersCount}`);
-        this.workersCount = workersCount;
+    constructor() {
         this.freeWorkers = workersCount;
     }
 
-    handleCrackRequest(crackRequest) {
-        const request = {
-            hash: crackRequest.hash,
-            maxLength: crackRequest.maxLength,
-            status: "IN_PROGRESS",
-            data: new Array(),
-            timerId: 0
-        }
+    handleRequest(request) {
+        const req = new Request(request.hash, request.maxLength);
 
         if (this.freeWorkers != this.workersCount) {
             return null;
         }
 
         const id = uuidv4();
-        this.requests.set(id, request);
+        this.requests.set(id, req);
+        this.#sendTasks(id, req);
 
-        this.#sendTasks(id, crackRequest.hash, crackRequest.maxLength);
-
-        const delay = 60000; // ms
-        request.timerId = setTimeout(() => {
+        req.timerId = setTimeout(() => {
             this.#requestTimeoutExpired(id);
-        }, delay);
+        }, this.timeout);
 
         return id;
     }
 
-    hasRequest(requestId) {
-        return this.requests.has(requestId);
+    hasRequest(id) {
+        return this.requests.has(id);
     }
 
-    getRequestStatus(requestId) {
-        const request = this.requests.get(requestId);
-        const data = (request.data.length > 0) ? request.data : null;
-    
-        const requestStatus = {
-            status: request.status,
-            data: data
-        };
-
-        console.log(`Request status ${requestId}`);
-        return requestStatus;
+    getRequestStatus(id) {
+        const req = this.requests.get(id);
+        console.log(`Request status ${id}`);
+        return req.getStatus();
     }
 
     updateRequestData(id, data) {
         console.log(`Updating request ${id}`);
         this.freeWorkers += 1;
 
-        const request = this.requests.get(id);
+        const req = this.requests.get(id);
+        req.addData(data);
 
-        if (request.status == "ERROR") {
-            return;
-        }
-
-        request.data.push(...data);
         if (this.freeWorkers == this.workersCount) {
-            request.status = "READY";
+            req.complete();
             console.log(`Request completed ${id}`);
-            clearTimeout(request.timerId);
+            clearTimeout(req.timerId);
         }
     }
 
     #requestTimeoutExpired(requestId) {
-        const request = this.requests.get(requestId);
+        const req = this.requests.get(requestId);
+        req.setError();
         console.log(`Request timeout expired ${requestId}`);
-
-        if (request.status != "READY") {
-            request.status = "ERROR";
-        }
     }
 
-    #sendTasks(requestId, hash, maxLength) {
-        const allPermsCount = permutationsCount(this.alphabet.length, maxLength);
+    #sendTasks(id, req) {
+        const allPermsCount = permutationsCount(this.alphabet.length, req.maxLength);
         const countPerTask = Math.floor(allPermsCount / this.workersCount);
     
         const task = {
-            requestId: requestId,
-            hash: hash,
+            requestId: id,
+            hash: req.hash,
             alphabet: this.alphabet,
             start: 0,
             count: countPerTask
@@ -104,7 +85,8 @@ export default class Manager {
     }
     
     #sendTask(worker, task) {
-        fetch(`http://crackhash-worker-${worker}:5000/internal/api/worker/hash/crack/task`, {
+        const url = `${this.workersHost}${worker}:${this.workersPort}`;
+        fetch(`${url}/internal/api/worker/hash/crack/task`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json;charset=utf-8'

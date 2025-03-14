@@ -1,5 +1,5 @@
 import WorkerService from "./service.js";
 import 'dotenv/config';
 
-const service = WorkerService();
+const service = new WorkerService();
 service.start(process.env.PORT);

@@ -6,9 +6,9 @@ export default class WorkerService {
     worker = new Worker();
 
     constructor() {
-        app.use(express.json());
+        this.app.use(express.json());
 
-        app.post("/internal/api/worker/hash/crack/task", (req, res) => {
+        this.app.post("/internal/api/worker/hash/crack/task", (req, res) => {
             if (!req.body) {
                 return res.sendStatus(400);
             }
@@ -24,12 +24,12 @@ export default class WorkerService {
             console.log(`Processing task ${task.requestId}`);
             console.log(`Range start=${task.start}, count=${task.count}`);
 
-            worker.processTask(task);
+            this.worker.processTask(task);
         });
     }
 
     start(port) {
-        app.listen(port, () => {
+        this.app.listen(port, () => {
             console.log("Worker started");
         });
     }
