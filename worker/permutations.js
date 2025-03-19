@@ -1,4 +1,4 @@
-export default class Permutation {
+export default class Permutations {
     n = 0;
 
     /**

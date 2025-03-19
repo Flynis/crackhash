@@ -1,9 +1,9 @@
 import express from 'express';
-import Worker from './worker.js';
+import WorkerControler from './worker_controller.js';
 
 export default class WorkerService {
     app = express();
-    worker = new Worker();
+    controller = new WorkerControler();
 
     constructor() {
         this.app.use(express.json());
@@ -18,13 +18,20 @@ export default class WorkerService {
                 hash: req.body.hash,
                 alphabet: req.body.alphabet,
                 start: req.body.start,
-                count: req.body.function
+                count: req.body.count
             };
-            res.sendStatus(200);
-            console.log(`Processing task ${task.requestId}`);
-            console.log(`Range start=${task.start}, count=${task.count}`);
+            
+            const status = this.controller.processTask(task);
+            if (status) {
+                res.sendStatus(200);
+            } else {
+                res.sendStatus(429);
+            }
+        });
 
-            this.worker.processTask(task);
+        this.app.get("/internal/api/worker/hash/crack/progress", (_, res) => {
+            const progress = this.controller.getProgress();
+            res.sendStatus(progress);
         });
     }
 
