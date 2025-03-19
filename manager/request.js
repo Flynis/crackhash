@@ -11,10 +11,11 @@ export default class Request {
         this.maxLength = maxLength;
     }
 
-    getStatus() {
+    getStatus(progress) {
         const data = (this.data.length > 0) ? this.data : null;
         return {
             status: this.status,
+            progress: progress,
             data: data,
         };
     }

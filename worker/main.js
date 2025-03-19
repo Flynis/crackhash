@@ -1,4 +1,4 @@
-import WorkerService from "./service.js";
+import WorkerService from "./worker_service.js";
 import 'dotenv/config';
 
 const service = new WorkerService();

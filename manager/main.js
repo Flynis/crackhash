@@ -1,4 +1,4 @@
-import ManagerService from './service.js';
+import ManagerService from './manager_service.js';
 import 'dotenv/config';
 
 const service = new ManagerService();

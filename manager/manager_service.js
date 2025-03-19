@@ -35,9 +35,9 @@ export default class ManagerService {
                 return res.sendStatus(400);
             }
         
-            const status = this.manager.getRequestStatus(id);
-            console.log(`Send status for ${id}`);
-            res.send(status);
+            this.manager.getRequestStatus(id).then((status) => {
+                res.send(status);
+            });
         });
         
         this.app.patch("/internal/api/manager/hash/crack/request", (req, res) => {

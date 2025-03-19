@@ -39,9 +39,27 @@ export default class Manager {
         return this.requests.has(id);
     }
 
-    getRequestStatus(id) {
+    async getRequestStatus(id) {
         const req = this.requests.get(id);
-        return req.getStatus();
+
+        let current = 0;
+        let total = 0;
+
+        for (let i = 1; i <= this.workersCount; i++) {
+            const url = `${this.workersHost}${i}:${this.workersPort}`;
+            const res = await fetch(`${url}/internal/api/worker/hash/crack/progress`);
+            if (!res.ok) {
+                continue;
+            }
+            const body = await res.json();
+            current += body.processed;
+            total += body.count;
+        }
+     
+        const percent = Math.floor((current / total) * 100);
+        console.log(`Progress ${current}/${total} ${percent}%`);
+        console.log(`Send status for ${id}`);
+        return req.getStatus(percent);
     }
 
     updateRequestData(id, data) {
@@ -55,6 +73,7 @@ export default class Manager {
             req.complete();
             console.log(`Request completed ${id}`);
             clearTimeout(req.timerId);
+            this.#scheduleTasks();
         }
     }
 
@@ -64,8 +83,8 @@ export default class Manager {
         }
 
         const req = this.queue.pop();
-
-        this.#sendTasks(req.id, req);
+        console.log(`Start processing ${req.id}`);
+        this.#sendTasks(req);
 
         req.timerId = setTimeout(() => {
             this.#requestTimeoutExpired(req.id);
@@ -78,12 +97,12 @@ export default class Manager {
         console.log(`Request timeout expired ${requestId}`);
     }
 
-    #sendTasks(id, req) {
-        const allPermsCount = permutationsCount(this.alphabet.length, req.maxLength);
-        const countPerTask = Math.floor(allPermsCount / this.workersCount);
+    #sendTasks(req) {
+        const total = this.#permsCount(this.alphabet.length, req.maxLength);
+        const countPerTask = Math.floor(total / this.workersCount);
     
         const task = {
-            requestId: id,
+            requestId: req.id,
             hash: req.hash,
             alphabet: this.alphabet,
             start: 0,
@@ -95,7 +114,7 @@ export default class Manager {
             task.start += countPerTask;
         }
     
-        task.count = allPermsCount - task.start;
+        task.count = total - task.start;
         this.#sendTask(this.workersCount, task);
     }
     
@@ -115,12 +134,12 @@ export default class Manager {
         });
     }
 
-};
-
-function permutationsCount(n, k) {
-    let count = 0;
-    for (let i = 1; i <= k; i++) {
-        count += Math.pow(n, k);
+    #permsCount(n, k) {
+        let count = 0;
+        for (let i = 1; i <= k; i++) {
+            count += Math.pow(n, k);
+        }
+        return count;
     }
-    return count;
-}
+
+};

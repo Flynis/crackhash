@@ -58,7 +58,7 @@ export default class WorkerControler {
             processed: this.taskProgress.current,
             count: this.currentTask.count,
         };
-        const percent = (progress.processed / progress.count) * 100;
+        const percent = Math.floor((progress.processed / progress.count) * 100);
         console.log(`Progress ${progress.processed}/${progress.count} ${percent}%`);
         return progress;
     }
