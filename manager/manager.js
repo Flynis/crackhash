@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import Request from './request.js';
+import { Queue } from '@datastructures-js/queue';
 import 'dotenv/config';
 
 export default class Manager {
@@ -10,26 +11,27 @@ export default class Manager {
     workersPort = process.env.WORKERS_PORT;
     freeWorkers = 0;
     requests = new Map();
+    maxQueueSize = process.env.QUEUE_SIZE;
+    queue = new Queue();
 
     constructor() {
         this.freeWorkers = workersCount;
     }
 
     handleRequest(request) {
-        const req = new Request(request.hash, request.maxLength);
-
-        if (this.freeWorkers != this.workersCount) {
+        if (this.queue.size() >= this.maxQueueSize) {
             return null;
         }
 
         const id = uuidv4();
+        const req = new Request(id, request.hash, request.maxLength);
+        console.log(`New request ${id}`);
+        console.log(`Request h=${req.hash} maxLen=${req.maxLength}`);
+
         this.requests.set(id, req);
-        this.#sendTasks(id, req);
+        this.queue.push(req);
 
-        req.timerId = setTimeout(() => {
-            this.#requestTimeoutExpired(id);
-        }, this.timeout);
-
+        this.#scheduleTasks();
         return id;
     }
 
@@ -39,7 +41,6 @@ export default class Manager {
 
     getRequestStatus(id) {
         const req = this.requests.get(id);
-        console.log(`Request status ${id}`);
         return req.getStatus();
     }
 
@@ -55,6 +56,20 @@ export default class Manager {
             console.log(`Request completed ${id}`);
             clearTimeout(req.timerId);
         }
+    }
+
+    #scheduleTasks() {
+        if (this.queue.size() == 0 || this.freeWorkers < this.workersCount) {
+            return;
+        }
+
+        const req = this.queue.pop();
+
+        this.#sendTasks(req.id, req);
+
+        req.timerId = setTimeout(() => {
+            this.#requestTimeoutExpired(req.id);
+        }, this.timeout);
     }
 
     #requestTimeoutExpired(requestId) {

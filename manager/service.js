@@ -13,19 +13,18 @@ export default class ManagerService {
                 return res.sendStatus(400);
             }
 
-            const crackRequest = {
+            const request = {
                 hash: req.body.hash,
                 maxLength: req.body.maxLength
             };
-            let requestId = this.manager.handleRequest(crackRequest);
-            console.log(`Request hash ${crackRequest.hash}`);
-        
-            if (requestId) {
+
+            const id = this.manager.handleRequest(request);
+            if (id) {
                 res.send({
-                    requestId: requestId        
+                    requestId: id        
                 });
             } else {
-                res.sendStatus(500);
+                res.sendStatus(429);
             }
         });
         
@@ -37,6 +36,7 @@ export default class ManagerService {
             }
         
             const status = this.manager.getRequestStatus(id);
+            console.log(`Send status for ${id}`);
             res.send(status);
         });
         

@@ -5,7 +5,8 @@ export default class Request {
     data = new Array();
     timerId = 0;
 
-    constructor(hash, maxLength) {
+    constructor(id, hash, maxLength) {
+        this.id = id;
         this.hash = hash;
         this.maxLength = maxLength;
     }
