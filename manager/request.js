@@ -11,11 +11,16 @@ export default class Request {
         this.maxLength = maxLength;
     }
 
-    getStatus(progress) {
+    getStatusWithProgress(progress) {
+        const status = this.getStatus();
+        status.progress = progress;
+        return status;
+    }
+
+    getStatus() {
         const data = (this.data.length > 0) ? this.data : null;
         return {
             status: this.status,
-            progress: progress,
             data: data,
         };
     }
@@ -24,6 +29,11 @@ export default class Request {
         if (this.status == Status.InProgress) {
             this.status = Status.Err;
         }
+    }
+
+    inProgress() {
+        return this.status == Status.InProgress 
+            || this.status == Status.Partial;
     }
 
     addData(data) {

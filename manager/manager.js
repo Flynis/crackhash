@@ -15,7 +15,7 @@ export default class Manager {
     queue = new Queue();
 
     constructor() {
-        this.freeWorkers = workersCount;
+        this.freeWorkers = this.workersCount;
     }
 
     handleRequest(request) {
@@ -42,24 +42,13 @@ export default class Manager {
     async getRequestStatus(id) {
         const req = this.requests.get(id);
 
-        let current = 0;
-        let total = 0;
-
-        for (let i = 1; i <= this.workersCount; i++) {
-            const url = `${this.workersHost}${i}:${this.workersPort}`;
-            const res = await fetch(`${url}/internal/api/worker/hash/crack/progress`);
-            if (!res.ok) {
-                continue;
-            }
-            const body = await res.json();
-            current += body.processed;
-            total += body.count;
+        if (req.inProgress()) {
+            const progress = await this.#fetchProgress();
+            console.log(`Send status for ${id}`);
+            return req.getStatusWithProgress(progress);
+        } else {
+            return req.getStatus();
         }
-     
-        const percent = Math.floor((current / total) * 100);
-        console.log(`Progress ${current}/${total} ${percent}%`);
-        console.log(`Send status for ${id}`);
-        return req.getStatus(percent);
     }
 
     updateRequestData(id, data) {
@@ -91,9 +80,29 @@ export default class Manager {
         }, this.timeout);
     }
 
+    async #fetchProgress() {
+        let current = 0;
+        let total = 0;
+
+        for (let i = 1; i <= this.workersCount; i++) {
+            const url = `${this.workersHost}${i}:${this.workersPort}`;
+            const res = await fetch(`${url}/internal/api/worker/hash/crack/progress`);
+            if (!res.ok) {
+                continue;
+            }
+            const body = await res.json();
+            current += body.processed;
+            total += body.count;
+        }
+     
+        const percent = Math.floor((current / total) * 100);
+        console.log(`Progress ${current}/${total} ${percent}%`);
+        return percent;
+    }
+
     #requestTimeoutExpired(requestId) {
         const req = this.requests.get(requestId);
-        req.setError();
+        req.setErrorStatus();
         console.log(`Request timeout expired ${requestId}`);
     }
 

@@ -1,11 +1,11 @@
-import Permutation from './permutation.js';
+import Permutations from './permutations.js';
 import { md5 } from 'js-md5';
 
 export default class HashBruteForce {
 
     crackHash({hash, alphabet, start, count}, trackProgress) {
         const n = alphabet.length;
-        const permutation = new Permutation(n);
+        const permutation = new Permutations(n);
     
         let k = 1;
         let threshold = this.#permutationsCount(n, k);

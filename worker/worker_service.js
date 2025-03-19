@@ -31,7 +31,7 @@ export default class WorkerService {
 
         this.app.get("/internal/api/worker/hash/crack/progress", (_, res) => {
             const progress = this.controller.getProgress();
-            res.sendStatus(progress);
+            res.send(progress);
         });
     }
 

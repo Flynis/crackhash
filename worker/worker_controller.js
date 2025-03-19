@@ -1,7 +1,6 @@
 import { Worker } from 'worker_threads';
 import TaskProgress, { TaskProgressSize } from './task_progress.js';
 import { MessageType } from './message_type.js';
-import path from 'path';
 import 'dotenv/config';
 
 export default class WorkerControler {
@@ -18,7 +17,7 @@ export default class WorkerControler {
     completed = true;
 
     constructor() {
-        this.worker = new Worker(path.join(__dirname, 'worker.js'));
+        this.worker = new Worker('./worker.js');
 
         this.worker.on('message', (msg) => {
             const {type, data} = msg;
