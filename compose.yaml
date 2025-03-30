@@ -7,6 +7,7 @@ services:
   manager:
     build: ./manager
     ports:
-      - "3000:3000"
+      - ${MANAGER_PORT}:${MANAGER_PORT}
     environment:
       - WORKERS_COUNT=${WORKERS_COUNT}
+      - MANAGER_PORT=${MANAGER_PORT}
