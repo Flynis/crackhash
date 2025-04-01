@@ -18,14 +18,20 @@ export default class ManagerService {
                 maxLength: req.body.maxLength
             };
 
-            const id = this.manager.handleRequest(request);
-            if (id) {
-                res.send({
-                    requestId: id        
-                });
-            } else {
-                res.sendStatus(429);
-            }
+            this.manager.handleRequest(request)
+            .catch((err) => {
+                console.log(err);
+                res.sendStatus(500);
+            })
+            .then((id) => {
+                if (id) {
+                    res.send({
+                        requestId: id        
+                    });
+                } else {
+                    res.sendStatus(429);
+                }
+            });
         });
         
         this.app.get("/api/hash/status", (req, res) => {
@@ -39,27 +45,16 @@ export default class ManagerService {
                 res.send(status);
             });
         });
-        
-        this.app.patch("/internal/api/manager/hash/crack/request", (req, res) => {
-            if (!req.body) {
-                return res.sendStatus(400);
-            }
-        
-            const id = req.body.requestId;
-            if (!this.manager.hasRequest(id)) {
-                return res.sendStatus(400);
-            }
-        
-            const data = req.body.data;
-            this.manager.updateRequestData(id, data);
-        
-            res.sendStatus(200);
-        });
+    }
+
+    async init() {
+        await this.manager.init();
     }
 
     start(port) {
         this.app.listen(port, () => {
-            console.log("Manager started");
+            console.log("Manager service started");
         });
     }
+
 };

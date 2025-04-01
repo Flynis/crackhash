@@ -13,6 +13,8 @@
     "@datastructures-js/queue": "^4.2.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "mongodb": "^6.15.0",
+    "rabbitmq-client": "^5.0.2",
     "uuid": "^11.1.0"
   }
 }

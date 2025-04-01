@@ -11,6 +11,7 @@ export default class TaskProgress {
     get current() {
         return this.dataview.getInt32(0);
     }
+    
 }
 
 export const TaskProgressSize = Int32Array.BYTES_PER_ELEMENT;

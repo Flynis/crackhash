@@ -43,4 +43,5 @@ export default class Permutations {
 
         return perm;
     }
+    
 };

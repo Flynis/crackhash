@@ -1,13 +1,42 @@
 services:
+
+  mongodb:
+    image: mongo
+    container_name: "mongodb"
+    volumes:
+      - type: bind
+        source: ./data/db
+        target: /data/db
+    attach: false
+
+  rabbitmq:
+    image: rabbitmq
+    container_name: "rabbitmq"
+    volumes:
+      - type: bind
+        source: ./data/rabbitmq
+        target: /var/lib/rabbitmq
+    attach: false
+
   worker:
     build: ./worker
     deploy:
       mode: replicated
       replicas: ${WORKERS_COUNT}
+    environment:
+      - WORKER_PORT=${WORKER_PORT}
+    depends_on:
+      - rabbitmq
+
   manager:
     build: ./manager
+    container_name: "manager"
     ports:
       - ${MANAGER_PORT}:${MANAGER_PORT}
     environment:
       - WORKERS_COUNT=${WORKERS_COUNT}
       - MANAGER_PORT=${MANAGER_PORT}
+      - WORKER_PORT=${WORKER_PORT}
+    depends_on: 
+      - rabbitmq
+      - mongodb

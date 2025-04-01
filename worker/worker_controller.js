@@ -4,7 +4,6 @@ import { MessageType } from './message_type.js';
 import 'dotenv/config';
 
 export default class WorkerControler {
-    managerUrl = process.env.MANAGER_URL;
     buffer = new SharedArrayBuffer(TaskProgressSize);
     taskProgress = new TaskProgress(this.buffer);
     currentTask = {
@@ -15,6 +14,7 @@ export default class WorkerControler {
         count: 0
     };
     completed = true;
+    onComplete = (result) => { console.log(result); };
 
     constructor() {
         this.worker = new Worker('./worker.js');
@@ -23,7 +23,13 @@ export default class WorkerControler {
             const {type, data} = msg;
             if (type == MessageType.Result) {
                 this.completed = true;
-                this.#sendResult(data);
+                const result = {
+                    requestId: this.currentTask.requestId,
+                    data: data,
+                    count: this.currentTask.count
+                };
+                console.log("Task completed");
+                this.onComplete(result);
             }
         });
 
@@ -60,23 +66,5 @@ export default class WorkerControler {
         const percent = Math.floor((progress.processed / progress.count) * 100);
         console.log(`Progress ${progress.processed}/${progress.count} ${percent}%`);
         return progress;
-    }
-
-    #sendResult(result) {
-        console.log(`Found ${result.length} words`);
-        fetch(`${this.managerUrl}/internal/api/manager/hash/crack/request`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json;charset=utf-8'
-            },
-            body: JSON.stringify({
-                requestId: this.currentTask.requestId,
-                data: result
-            })
-        }).catch((reason) => {
-            console.log(reason)
-        }).then((_) => {
-            console.log("Result sended");
-        });
     }
 };

@@ -3,10 +3,10 @@ import {Status} from "./status.js";
 export default class Request {
     status = Status.InProgress;
     data = new Array();
-    timerId = 0;
+    date = Date.now();
 
     constructor(id, hash, maxLength) {
-        this.id = id;
+        this._id = id;
         this.hash = hash;
         this.maxLength = maxLength;
     }
@@ -18,10 +18,9 @@ export default class Request {
     }
 
     getStatus() {
-        const data = (this.data.length > 0) ? this.data : null;
         return {
             status: this.status,
-            data: data,
+            data: this.data,
         };
     }
 
@@ -29,11 +28,6 @@ export default class Request {
         if (this.status == Status.InProgress) {
             this.status = Status.Err;
         }
-    }
-
-    inProgress() {
-        return this.status == Status.InProgress 
-            || this.status == Status.Partial;
     }
 
     addData(data) {
@@ -46,4 +40,9 @@ export default class Request {
     complete() {
         this.status = Status.Ready;
     }
+
+    completed() {
+        return this.status == Status.Ready;
+    }
+    
 };

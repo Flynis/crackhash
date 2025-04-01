@@ -1,48 +1,72 @@
-import { v4 as uuidv4 } from 'uuid';
-import Request from './request.js';
-import { Queue } from '@datastructures-js/queue';
 import 'dotenv/config';
+import DbController from './db_controller.js';
+import MessageBroker from './message_broker.js';
+import { Queue } from '@datastructures-js/queue';
+import Request from './request.js';
+import { v4 as uuidv4 } from 'uuid';
+import { Status } from './status.js';
 
 export default class Manager {
     alphabet = process.env.ALPHABET;
-    timeout = process.env.TIMEOUT;
+    maxRequests = process.env.MAX_REQUESTS;
     workersCount = process.env.WORKERS_COUNT;
-    workersHost = process.env.WORKERS_HOST;
-    workersPort = process.env.WORKERS_PORT;
-    freeWorkers = 0;
+    workersHost = process.env.WORKER_HOST;
+    workersPort = process.env.WORKER_PORT;
     requests = new Map();
-    maxQueueSize = process.env.QUEUE_SIZE;
     queue = new Queue();
+    db = new DbController();
+    broker = new MessageBroker();
+    currentReq = {
+        id: "",
+        total: 0,
+        progress: 0,
+    };
 
     constructor() {
-        this.freeWorkers = this.workersCount;
+        this.broker.onReceiveResult = (result) => {
+            this.#updateRequestData(result)
+            .catch((err) => console.log("Failed to update request data", err))
+            .then((_) => console.log("Request data updated"));
+        };
     }
 
-    handleRequest(request) {
-        if (this.queue.size() >= this.maxQueueSize) {
-            return null;
+    async init() {
+        const oldRequests = await this.db.fetchRequests();
+        for(const req of oldRequests) {
+            this.requests.set(req._id, req);
+            if (req.status == Status.InProgress) {
+                this.queue.push(req);
+            }
         }
-
-        const id = uuidv4();
-        const req = new Request(id, request.hash, request.maxLength);
-        console.log(`New request ${id}`);
-        console.log(`Request h=${req.hash} maxLen=${req.maxLength}`);
-
-        this.requests.set(id, req);
-        this.queue.push(req);
-
+        console.log("Manager initialized");
         this.#scheduleTasks();
-        return id;
     }
 
     hasRequest(id) {
         return this.requests.has(id);
     }
 
+    async handleRequest(request) {
+        const id = uuidv4();
+        const req = new Request(id, request.hash, request.maxLength);
+        console.log(`New request ${id}`);
+        console.log(`Request h=${req.hash} maxLen=${req.maxLength}`);
+        console.log(`Request date ${req.date}`);
+
+        const saved = await this.db.saveRequest(req);
+        if (saved) {
+            this.requests.set(id, req);
+            this.queue.push(req);
+            this.#scheduleTasks();
+            return id;
+        } else {
+            return null;
+        }
+    }
+
     async getRequestStatus(id) {
         const req = this.requests.get(id);
-
-        if (req.inProgress()) {
+        if (!this.#requestCompleted(id)) {
             const progress = await this.#fetchProgress();
             console.log(`Send status for ${id}`);
             return req.getStatusWithProgress(progress);
@@ -51,38 +75,54 @@ export default class Manager {
         }
     }
 
-    updateRequestData(id, data) {
-        console.log(`Updating request ${id}`);
-        this.freeWorkers += 1;
+    #requestCompleted(id) {
+        return this.currentReq.id == id 
+            && this.currentReq.progress == this.currentReq.total;
+    }
 
-        const req = this.requests.get(id);
-        req.addData(data);
+    async #updateRequestData(result) {
+        const req = this.requests.get(result.requestId);
+        if (!req) {
+            return;
+        }
 
-        if (this.freeWorkers == this.workersCount) {
+        let requireUpdate = false;
+        if (result.data.length > 0) {
+            req.addData(result.data);
+            requireUpdate = true;
+        }
+        this.currentReq.progress += result.count;
+
+        if (this.currentReq.progress == this.currentReq.total) {
             req.complete();
-            console.log(`Request completed ${id}`);
-            clearTimeout(req.timerId);
-            this.#scheduleTasks();
+            requireUpdate = true;
+        }
+        if (requireUpdate) {
+            await this.db.updateRequest(req);
+
+            if (req.completed()) {
+                console.log(`Request completed ${result.requestId}`);
+                this.#scheduleTasks();
+            }
         }
     }
 
     #scheduleTasks() {
-        if (this.queue.size() == 0 || this.freeWorkers < this.workersCount) {
+        if (this.queue.size() == 0) {
             return;
         }
-
         const req = this.queue.pop();
-        console.log(`Start processing ${req.id}`);
+        console.log(`Start processing ${req._id}`);
+        this.currentReq = {
+            id: req._id,
+            total: this.#permsCount(this.alphabet.length, req.maxLength),
+            progress: 0
+        };
         this.#sendTasks(req);
-
-        req.timerId = setTimeout(() => {
-            this.#requestTimeoutExpired(req.id);
-        }, this.timeout);
     }
 
     async #fetchProgress() {
         let current = 0;
-        let total = 0;
 
         for (let i = 1; i <= this.workersCount; i++) {
             const url = `${this.workersHost}${i}:${this.workersPort}`;
@@ -92,55 +132,40 @@ export default class Manager {
             }
             const body = await res.json();
             current += body.processed;
-            total += body.count;
         }
      
-        const percent = Math.floor((current / total) * 100);
-        console.log(`Progress ${current}/${total} ${percent}%`);
+        const total = this.currentReq.total;
+        const progress = current + this.currentReq.progress;
+        const percent = Math.floor((progress / total) * 100);
+        console.log(`Progress ${progress}/${total} ${percent}%`);
         return percent;
     }
 
-    #requestTimeoutExpired(requestId) {
-        const req = this.requests.get(requestId);
-        req.setErrorStatus();
-        console.log(`Request timeout expired ${requestId}`);
-    }
-
     #sendTasks(req) {
-        const total = this.#permsCount(this.alphabet.length, req.maxLength);
-        const countPerTask = Math.floor(total / this.workersCount);
+        const total = this.currentReq.total;
+        const count = Math.floor(total / this.workersCount);
     
-        const task = {
-            requestId: req.id,
-            hash: req.hash,
-            alphabet: this.alphabet,
-            start: 0,
-            count: countPerTask
-        };
-    
+        let start = 0;
         for (let i = 1; i < this.workersCount; i++) {
-            this.#sendTask(i, task);
-            task.start += countPerTask;
+            const task = {
+                requestId: req._id,
+                hash: req.hash,
+                alphabet: this.alphabet,
+                start: start,
+                count: count
+            };
+            this.broker.sendTask(task);
+            start += count;
         }
     
-        task.count = total - task.start;
-        this.#sendTask(this.workersCount, task);
-    }
-    
-    #sendTask(worker, task) {
-        const url = `${this.workersHost}${worker}:${this.workersPort}`;
-        fetch(`${url}/internal/api/worker/hash/crack/task`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json;charset=utf-8'
-            },
-            body: JSON.stringify(task)
-        }).catch((reason) => {
-            console.log(reason);
-        }).then((_) => {
-            console.log(`${worker} task sended`);
-            this.freeWorkers -= 1;
-        });
+        const task = {
+            requestId: req._id,
+            hash: req.hash,
+            alphabet: this.alphabet,
+            start: start,
+            count: total - start
+        };
+        this.broker.sendTask(task);
     }
 
     #permsCount(n, k) {
