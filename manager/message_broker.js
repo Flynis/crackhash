@@ -65,7 +65,8 @@ export default class MessageBroker {
     sendTask(task) {
         this.taskPublisher.send({
             exchange: this.taskQueue, 
-            routingKey: this.taskQueue
+            routingKey: this.taskQueue,
+            durable: true,
         }, task)
         .catch((err) => console.log("Failed to send task", err))
         .then((_) => console.log("Task sended"));

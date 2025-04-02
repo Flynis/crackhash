@@ -83,7 +83,7 @@ services:
       - DB_CONN_STR=mongodb://mongodb1:27017,mongodb2:27018,mongodb3:27019/?replicaSet=rs0
       - MANAGER_PORT=${MANAGER_PORT}
       - WORKER_PORT=${WORKER_PORT}
-      - WORKER_HOST=http://crackhash-worker-
+      - WORKER_HOST=${WORKER_HOST}
       - WORKERS_COUNT=${WORKERS_COUNT}
     depends_on: 
       - rabbitmq

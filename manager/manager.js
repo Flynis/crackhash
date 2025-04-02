@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import DbController from './db_controller.js';
 import MessageBroker from './message_broker.js';
+import moment from 'moment';
 import { Queue } from '@datastructures-js/queue';
 import Request from './request.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,6 +13,8 @@ export default class Manager {
     workersCount = process.env.WORKERS_COUNT;
     workersHost = process.env.WORKER_HOST;
     workersPort = process.env.WORKER_PORT;
+    requestTtl = process.env.COMPLETED_REQUEST_TTL;
+    dbCleanuPeriod = process.env.DB_CLEANUP_PERIOD * 1000; // ms
     requests = new Map();
     queue = new Queue();
     db = new DbController();
@@ -34,12 +37,36 @@ export default class Manager {
         const oldRequests = await this.db.fetchRequests();
         for(const req of oldRequests) {
             this.requests.set(req._id, req);
-            if (req.status == Status.InProgress) {
+            if (req.status != Status.Ready) {
                 this.queue.push(req);
             }
         }
+
+        await this.#deleteOldRequests();
+        setInterval(async () => {
+            await this.#deleteOldRequests();
+        }, this.dbCleanuPeriod);
+
         console.log("Manager initialized");
         this.#scheduleTasks();
+    }
+
+    async #deleteOldRequests() {
+        const requestsToDelete = new Array();
+        const threshold = 
+            moment()
+            .subtract(this.requestTtl, "seconds")
+            .toDate();
+        for (let [_, req] of  this.requests.entries()) {
+            if (req.status == Status.Ready && req.date < threshold) {
+                requestsToDelete.push(req._id);
+            }   
+        }
+        for (const id of requestsToDelete) {
+            this.requests.delete(id);
+        }
+        await this.db.deleteRequests(requestsToDelete);
+        console.log(`Delete ${requestsToDelete.length} old requests`);
     }
 
     hasRequest(id) {
@@ -108,7 +135,8 @@ export default class Manager {
     }
 
     #scheduleTasks() {
-        if (this.queue.size() == 0) {
+        if (this.queue.size() == 0 
+            || this.currentReq.progress != this.currentReq.total) {
             return;
         }
         const req = this.queue.pop();

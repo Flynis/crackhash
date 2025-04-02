@@ -3,6 +3,15 @@ import TaskProgress, { TaskProgressSize } from './task_progress.js';
 import { MessageType } from './message_type.js';
 import 'dotenv/config';
 
+class TaskPromise {
+    constructor() {
+        this.promise = new Promise((resolve, reject)=> {
+            this.reject = reject
+            this.resolve = resolve
+        });
+    }
+};
+
 export default class WorkerControler {
     buffer = new SharedArrayBuffer(TaskProgressSize);
     taskProgress = new TaskProgress(this.buffer);
@@ -13,8 +22,8 @@ export default class WorkerControler {
         start: 0,
         count: 0
     };
-    completed = true;
-    onComplete = (result) => { console.log(result); };
+    taskPromise = null;
+    onComplete = (result, _) => { console.log(result); };
 
     constructor() {
         this.worker = new Worker('./worker.js');
@@ -28,8 +37,7 @@ export default class WorkerControler {
                     data: data,
                     count: this.currentTask.count
                 };
-                console.log("Task completed");
-                this.onComplete(result);
+                this.onComplete(result, this.taskPromise.resolve);
             }
         });
 
@@ -39,11 +47,7 @@ export default class WorkerControler {
         });
     }
 
-    processTask(task) {
-        if (!this.completed) {
-            return false;
-        }
-
+    async processTask(task) {
         console.log(`Processing task ${task.requestId}`);
         console.log(`Range start=${task.start}, count=${task.count}`);
 
@@ -55,7 +59,8 @@ export default class WorkerControler {
             data: task,
         });
 
-        return true;
+        this.taskPromise = new TaskPromise();
+        return this.taskPromise.promise;
     }
 
     getProgress() {

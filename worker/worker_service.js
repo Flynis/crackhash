@@ -37,13 +37,17 @@ export default class WorkerService {
                 queue: this.resultQueue,
             }],
         });
-        this.controller.onComplete = (result) => {
+        this.controller.onComplete = (result, resolve) => {
             this.resultPublisher.send({
                 exchange: this.resultQueue, 
-                routingKey: this.resultQueue
+                routingKey: this.resultQueue,
+                durable: true,
             }, result)
             .catch((err) => console.log("Failed to send result", err))
-            .then((_) => console.log("Result sended"));
+            .then((_) => {
+                console.log("Result sended");
+                resolve();
+            });
         };
         
         this.taskConsumer = this.rabbit.createConsumer({
@@ -64,9 +68,10 @@ export default class WorkerService {
                 routingKey: this.taskQueue,
                 queue: this.taskQueue,
             }],
-        }, (msg) => {
+        }, async (msg) => {
             console.log('Received task');
-            this.controller.processTask(msg.body);
+            await this.controller.processTask(msg.body);
+            console.log("Task completed");
         });
         this.taskConsumer.on('error', (err) => {
             console.log('Task consumer error', err);

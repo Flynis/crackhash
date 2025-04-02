@@ -10,7 +10,7 @@ export default class DbController {
             const db = this.mongoClient.db("crackdb");
             const collection = db.collection("requests");
 
-            const results = await collection.find().toArray();
+            const results = await collection.find({}).toArray();
             console.log(`Fetched ${results.length} requests`);
 
             return results;
@@ -54,6 +54,23 @@ export default class DbController {
             }
         } catch(err) {
             console.log("Failed to update request", err);
+        } finally {
+            await this.mongoClient.close();
+        }
+    }
+
+    async deleteRequests(ids) {
+        try {
+            await this.mongoClient.connect();
+            const db = this.mongoClient.db("crackdb");
+            const collection = db.collection("requests");
+
+            const ret = await collection.deleteMany({_id: {$in: ids}});
+            if (!ret.acknowledged) {
+                throw ret;
+            }
+        } catch(err) {
+            console.log("Failed to delete requests", err);
         } finally {
             await this.mongoClient.close();
         }
