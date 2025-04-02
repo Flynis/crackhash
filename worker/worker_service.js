@@ -84,4 +84,5 @@ export default class WorkerService {
             console.log("Worker service started");
         });
     }
+    
 };

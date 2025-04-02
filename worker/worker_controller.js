@@ -67,4 +67,5 @@ export default class WorkerControler {
         console.log(`Progress ${progress.processed}/${progress.count} ${percent}%`);
         return progress;
     }
+    
 };

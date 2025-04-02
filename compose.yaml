@@ -9,6 +9,50 @@ services:
         target: /data/db
     attach: false
 
+  mongodb1:
+    image: mongo
+    container_name: "mongodb1"
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    healthcheck:
+      test: > 
+        echo "try { rs.status() } 
+        catch (err) { 
+        rs.initiate({_id:'rs0',members:[
+        {_id:0,host:'mongodb1:27017',priority:1},
+        {_id:1,host:'mongodb2:27018',priority:0.5},
+        {_id:2,host:'mongodb3:27019',priority:0.5}]}) 
+        }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
+    volumes:
+      - type: bind
+        source: ./data/db1
+        target: /data/db
+    attach: false
+
+  mongodb2:
+    image: mongo
+    container_name: "mongodb2"
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    volumes:
+      - type: bind
+        source: ./data/db2
+        target: /data/db
+    attach: false
+
+  mongodb3:
+    image: mongo
+    container_name: "mongodb3"
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    volumes:
+      - type: bind
+        source: ./data/db3
+        target: /data/db
+    attach: false
+
   rabbitmq:
     image: rabbitmq
     container_name: "rabbitmq"
@@ -25,6 +69,7 @@ services:
       replicas: ${WORKERS_COUNT}
     environment:
       - WORKER_PORT=${WORKER_PORT}
+      - BROKER_CONN_STR=${BROKER_CONN_STR}
     depends_on:
       - rabbitmq
 
@@ -34,9 +79,12 @@ services:
     ports:
       - ${MANAGER_PORT}:${MANAGER_PORT}
     environment:
-      - WORKERS_COUNT=${WORKERS_COUNT}
+      - BROKER_CONN_STR=${BROKER_CONN_STR}
+      - DB_CONN_STR=mongodb://mongodb1:27017,mongodb2:27018,mongodb3:27019/?replicaSet=rs0
       - MANAGER_PORT=${MANAGER_PORT}
       - WORKER_PORT=${WORKER_PORT}
+      - WORKER_HOST=http://crackhash-worker-
+      - WORKERS_COUNT=${WORKERS_COUNT}
     depends_on: 
       - rabbitmq
       - mongodb

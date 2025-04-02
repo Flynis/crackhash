@@ -43,4 +43,5 @@ export default class HashBruteForce {
         const chars = perm.map((x) => alphabet[x]);
         return chars.join("");
     }
+    
 };

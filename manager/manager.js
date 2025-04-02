@@ -65,10 +65,10 @@ export default class Manager {
     }
 
     async getRequestStatus(id) {
+        console.log(`Send status for ${id}`);
         const req = this.requests.get(id);
         if (!this.#requestCompleted(id)) {
             const progress = await this.#fetchProgress();
-            console.log(`Send status for ${id}`);
             return req.getStatusWithProgress(progress);
         } else {
             return req.getStatus();
