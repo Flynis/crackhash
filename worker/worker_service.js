@@ -12,7 +12,7 @@ export default class WorkerService {
 
     constructor() {
         this.rabbit.on('error', (err) => {
-            console.log('RabbitMQ connection error', err);
+            console.log('RabbitMQ connection error', err.message);
         });
         this.rabbit.on('connection', () => {
             console.log('RabbitMQ connection successfully (re)established');
@@ -43,7 +43,7 @@ export default class WorkerService {
                 routingKey: this.resultQueue,
                 durable: true,
             }, result)
-            .catch((err) => console.log("Failed to send result", err))
+            .catch((err) => console.log("Failed to send result", err.message))
             .then((_) => {
                 console.log("Result sended");
                 resolve();

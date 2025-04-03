@@ -44,5 +44,15 @@ export default class Request {
     completed() {
         return this.status == Status.Ready;
     }
+
+    static copy(req) {
+        const r = new Request(req._id, req.hash, req.maxLength);
+        r.status = req.status;
+        for (let i = 0; i < req.data.length; i += 1) {
+            r.data.push(i);
+        }
+        r.date = req.date;
+        return r;
+    }
     
 };

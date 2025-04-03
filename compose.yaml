@@ -1,14 +1,5 @@
 services:
 
-  mongodb:
-    image: mongo
-    container_name: "mongodb"
-    volumes:
-      - type: bind
-        source: ./data/db
-        target: /data/db
-    attach: false
-
   mongodb1:
     image: mongo
     container_name: "mongodb1"
@@ -87,4 +78,6 @@ services:
       - WORKERS_COUNT=${WORKERS_COUNT}
     depends_on: 
       - rabbitmq
-      - mongodb
+      - mongodb1
+      - mongodb2
+      - mongodb3

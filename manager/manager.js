@@ -6,65 +6,84 @@ import { Queue } from '@datastructures-js/queue';
 import Request from './request.js';
 import { v4 as uuidv4 } from 'uuid';
 import { Status } from './status.js';
+import State, { freeState } from './state.js';
 
 export default class Manager {
     alphabet = process.env.ALPHABET;
     maxRequests = process.env.MAX_REQUESTS;
     workersCount = process.env.WORKERS_COUNT;
-    workersHost = process.env.WORKER_HOST;
-    workersPort = process.env.WORKER_PORT;
-    requestTtl = process.env.COMPLETED_REQUEST_TTL;
-    dbCleanuPeriod = process.env.DB_CLEANUP_PERIOD * 1000; // ms
     requests = new Map();
     queue = new Queue();
     db = new DbController();
     broker = new MessageBroker();
-    currentReq = {
-        id: "",
-        total: 0,
-        progress: 0,
-    };
+    state = freeState();
 
     constructor() {
-        this.broker.onReceiveResult = (result) => {
-            this.#updateRequestData(result)
-            .catch((err) => console.log("Failed to update request data", err))
-            .then((_) => console.log("Request data updated"));
+        this.broker.onReceiveResult = async (result) => {
+            await this.#updateRequestData(result);
+            console.log("Request data updated"); 
         };
     }
 
     async init() {
+        await this.db.init();
+
+        const state = await this.db.fetchState();
+        if (state) {
+            this.state = State.copy(state);
+        } else {
+            await this.db.updateState(this.state);
+        }
+
         const oldRequests = await this.db.fetchRequests();
         for(const req of oldRequests) {
-            this.requests.set(req._id, req);
-            if (req.status != Status.Ready) {
+            this.requests.set(req._id, Request.copy(req));
+            if (req.status != Status.Ready && req._id != this.state.req) {
                 this.queue.push(req);
             }
         }
 
         await this.#deleteOldRequests();
+        const dbCleanuPeriod = process.env.DB_CLEANUP_PERIOD * 1000; // ms
         setInterval(async () => {
             await this.#deleteOldRequests();
-        }, this.dbCleanuPeriod);
+        }, dbCleanuPeriod);
 
         console.log("Manager initialized");
-        this.#scheduleTasks();
+        
+        if (this.state.completed) {
+            this.#scheduleTasks();
+        } else {
+            if (this.state.pending.size > 0) {
+                const req = this.requests.get(this.state.req);
+                for (const taskId of this.state.pending) {
+                    this.#sendTask(taskId, req);
+                }
+            }
+            if (this.state.inProgressTasks.size > 0) {
+                console.log("Wait for result of tasks ", this.state.inProgressTasks);
+            }
+        }
     }
 
     async #deleteOldRequests() {
         const requestsToDelete = new Array();
+        const requestTtl = process.env.COMPLETED_REQUEST_TTL;
         const threshold = 
             moment()
-            .subtract(this.requestTtl, "seconds")
+            .subtract(requestTtl, "seconds")
             .toDate();
+
         for (let [_, req] of  this.requests.entries()) {
             if (req.status == Status.Ready && req.date < threshold) {
                 requestsToDelete.push(req._id);
             }   
         }
+
         for (const id of requestsToDelete) {
             this.requests.delete(id);
         }
+
         await this.db.deleteRequests(requestsToDelete);
         console.log(`Delete ${requestsToDelete.length} old requests`);
     }
@@ -74,11 +93,14 @@ export default class Manager {
     }
 
     async handleRequest(request) {
+        if (this.queue.size() >= this.maxRequests) {
+            return null;
+        }
+
         const id = uuidv4();
         const req = new Request(id, request.hash, request.maxLength);
         console.log(`New request ${id}`);
         console.log(`Request h=${req.hash} maxLen=${req.maxLength}`);
-        console.log(`Request date ${req.date}`);
 
         const saved = await this.db.saveRequest(req);
         if (saved) {
@@ -103,8 +125,7 @@ export default class Manager {
     }
 
     #requestCompleted(id) {
-        return this.currentReq.id == id 
-            && this.currentReq.progress == this.currentReq.total;
+        return this.state.req == id && this.state.completed;
     }
 
     async #updateRequestData(result) {
@@ -118,42 +139,47 @@ export default class Manager {
             req.addData(result.data);
             requireUpdate = true;
         }
-        this.currentReq.progress += result.count;
 
-        if (this.currentReq.progress == this.currentReq.total) {
+        this.state.complete(result.taskId, result.count);
+        if (this.state.completed) {
             req.complete();
             requireUpdate = true;
         }
+
         if (requireUpdate) {
-            await this.db.updateRequest(req);
+            await this.db.updateRequestAndState(req, this.state);
 
             if (req.completed()) {
                 console.log(`Request completed ${result.requestId}`);
                 this.#scheduleTasks();
             }
+        } else {
+            await this.db.updateState(this.state);
         }
     }
 
     #scheduleTasks() {
         if (this.queue.size() == 0 
-            || this.currentReq.progress != this.currentReq.total) {
+            || !this.state.completed) {
             return;
         }
+
         const req = this.queue.pop();
         console.log(`Start processing ${req._id}`);
-        this.currentReq = {
-            id: req._id,
-            total: this.#permsCount(this.alphabet.length, req.maxLength),
-            progress: 0
-        };
-        this.#sendTasks(req);
+
+        const total = this.#permsCount(this.alphabet.length, req.maxLength);
+        this.state = new State(req._id, this.workersCount, total);
+
+        this.db.updateState(this.state).then((_) => {
+            this.#sendTasks(req);
+        });
     }
 
     async #fetchProgress() {
         let current = 0;
 
         for (let i = 1; i <= this.workersCount; i++) {
-            const url = `${this.workersHost}${i}:${this.workersPort}`;
+            const url = this.#getWorkerUrl(i);
             const res = await fetch(`${url}/internal/api/worker/hash/crack/progress`);
             if (!res.ok) {
                 continue;
@@ -162,38 +188,47 @@ export default class Manager {
             current += body.processed;
         }
      
-        const total = this.currentReq.total;
-        const progress = current + this.currentReq.progress;
+        const total = this.state.total;
+        const progress = current + this.state.progress;
         const percent = Math.floor((progress / total) * 100);
         console.log(`Progress ${progress}/${total} ${percent}%`);
         return percent;
     }
 
+    #getWorkerUrl(worker) {
+        const workersHost = process.env.WORKER_HOST;
+        const workersPort = process.env.WORKER_PORT;
+        return `${workersHost}${worker}:${workersPort}`;
+    }
+
     #sendTasks(req) {
-        const total = this.currentReq.total;
-        const count = Math.floor(total / this.workersCount);
-    
-        let start = 0;
-        for (let i = 1; i < this.workersCount; i++) {
-            const task = {
-                requestId: req._id,
-                hash: req.hash,
-                alphabet: this.alphabet,
-                start: start,
-                count: count
-            };
-            this.broker.sendTask(task);
-            start += count;
+        for (let i = 0; i < this.workersCount; i++) {
+            this.#sendTask(i, req);
         }
-    
+    }
+
+    #sendTask(taskId, req) {
+        const workersCount = this.workersCount;
+        const total = this.state.total;
+        const count = Math.floor(total / workersCount);
+        const start = taskId * count;
+        const taskSize = (taskId + 1 == workersCount) ? total - start : count;
+
         const task = {
             requestId: req._id,
             hash: req.hash,
+            taskId: taskId,
             alphabet: this.alphabet,
             start: start,
-            count: total - start
+            count: taskSize,
         };
-        this.broker.sendTask(task);
+        this.broker.sendTask(task)
+        .catch((err) => console.log(`Failed to send task${taskId}`, err))
+        .then((_) => {
+            console.log(`Task${taskId} sended`);
+            this.state.confirm(taskId);
+            this.db.updateState(this.state); 
+        });
     }
 
     #permsCount(n, k) {

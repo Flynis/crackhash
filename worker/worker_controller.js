@@ -18,6 +18,7 @@ export default class WorkerControler {
     currentTask = {
         requestId: "",
         hash: "",
+        taskId: 0,
         alphabet: "",
         start: 0,
         count: 0
@@ -34,6 +35,7 @@ export default class WorkerControler {
                 this.completed = true;
                 const result = {
                     requestId: this.currentTask.requestId,
+                    taskId: this.currentTask.taskId,
                     data: data,
                     count: this.currentTask.count
                 };
@@ -48,7 +50,7 @@ export default class WorkerControler {
     }
 
     async processTask(task) {
-        console.log(`Processing task ${task.requestId}`);
+        console.log(`Processing task${task.taskId} ${task.requestId}`);
         console.log(`Range start=${task.start}, count=${task.count}`);
 
         this.currentTask = task;

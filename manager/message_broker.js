@@ -9,7 +9,7 @@ export default class MessageBroker {
 
     constructor() {
         this.rabbit.on('error', (err) => {
-            console.log('RabbitMQ connection error', err);
+            console.log('RabbitMQ connection error', err.message);
         });
         this.rabbit.on('connection', () => {
             console.log('RabbitMQ connection successfully (re)established');
@@ -53,23 +53,21 @@ export default class MessageBroker {
                 routingKey: this.resultQueue,
                 queue: this.resultQueue,
             }],
-        }, (msg) => {
+        }, async (msg) => {
             console.log('Received result');
             this.onReceiveResult(msg.body);
         });
         this.resultConsumer.on('error', (err) => {
-            console.log('Result consumer error', err);
+            console.log('Result consumer error', err.message);
         });
     }
 
-    sendTask(task) {
-        this.taskPublisher.send({
+    async sendTask(task) {
+        return this.taskPublisher.send({
             exchange: this.taskQueue, 
             routingKey: this.taskQueue,
             durable: true,
-        }, task)
-        .catch((err) => console.log("Failed to send task", err))
-        .then((_) => console.log("Task sended"));
+        }, task);
     }
     
 };
