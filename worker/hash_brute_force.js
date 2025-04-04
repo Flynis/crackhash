@@ -6,6 +6,8 @@ export default class HashBruteForce {
     crackHash({hash, alphabet, start, count}, trackProgress) {
         const n = alphabet.length;
         const permutation = new Permutations(n);
+        const total = count;
+        const logThreshold = 100000
     
         let k = 1;
         let threshold = this.#permutationsCount(n, k);

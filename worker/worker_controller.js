@@ -47,6 +47,16 @@ export default class WorkerControler {
             type: MessageType.Init,
             data: this.buffer
         });
+
+        setInterval(() => {
+            this.#printProgress();
+        }, 30000);
+    }
+
+    #printProgress() {
+        const progress = this.taskProgress.current;
+        const percent = Math.floor((progress / this.currentTask.count) * 100);
+        console.log(`Progress ${progress}/${this.currentTask.count} ${percent}%`);
     }
 
     async processTask(task) {
@@ -70,8 +80,7 @@ export default class WorkerControler {
             processed: this.taskProgress.current,
             count: this.currentTask.count,
         };
-        const percent = Math.floor((progress.processed / progress.count) * 100);
-        console.log(`Progress ${progress.processed}/${progress.count} ${percent}%`);
+        console.log("Send task progress");
         return progress;
     }
     

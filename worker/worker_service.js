@@ -55,7 +55,6 @@ export default class WorkerService {
             queueOptions: {
                 durable: true,
                 autoDelete: false,
-                durable: true,
                 exclusive: false
             },
             qos: {prefetchCount: 1},
@@ -81,6 +80,10 @@ export default class WorkerService {
         this.app.get("/internal/api/worker/hash/crack/progress", (_, res) => {
             const progress = this.controller.getProgress();
             res.send(progress);
+        });
+        this.app.get("/internal/api/worker/health", (_, res) => {
+            console.log("Health check");
+            res.sendStatus(200);
         });
     }
 

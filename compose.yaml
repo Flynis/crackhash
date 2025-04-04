@@ -45,8 +45,10 @@ services:
     attach: false
 
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:management
     container_name: "rabbitmq"
+    ports:
+      - 15672:15672
     volumes:
       - type: bind
         source: ./data/rabbitmq

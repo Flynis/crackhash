@@ -12,6 +12,7 @@ export default class Manager {
     alphabet = process.env.ALPHABET;
     maxRequests = process.env.MAX_REQUESTS;
     workersCount = process.env.WORKERS_COUNT;
+    workerStatus = new Array(this.workersCount);
     requests = new Map();
     queue = new Queue();
     db = new DbController();
@@ -19,6 +20,7 @@ export default class Manager {
     state = freeState();
 
     constructor() {
+        this.workerStatus.fill(true);
         this.broker.onReceiveResult = async (result) => {
             await this.#updateRequestData(result);
             console.log("Request data updated"); 
@@ -49,7 +51,13 @@ export default class Manager {
             await this.#deleteOldRequests();
         }, dbCleanuPeriod);
 
-        console.log("Manager initialized");
+        const healthCheckPeriod = process.env.HEALTH_CHECK_PERIOD * 1000; // ms
+        setInterval(() => {
+            this.#healthCheck();
+        }, healthCheckPeriod);
+
+        console.log("Manager initialized ", this.state);
+
         
         if (this.state.completed) {
             this.#scheduleTasks();
@@ -61,9 +69,30 @@ export default class Manager {
                 }
             }
             if (this.state.inProgressTasks.size > 0) {
-                console.log("Wait for result of tasks ", this.state.inProgressTasks);
+                console.log(`Wait for result of tasks ${this.state.inProgressTasks.toString()}`);
             }
         }
+    }
+
+    async #healthCheck() {
+        const aliveWorkers = new Array();
+        for (let i = 1; i <= this.workersCount; i++) {
+            const url = this.#getWorkerUrl(i);
+            const workerIndex = i - 1;
+            try {
+                const res = await fetch(`${url}/internal/api/worker/health`);
+                if (!res.ok) {
+                    this.workerStatus[workerIndex] = false;
+                    continue;
+                } else {
+                    this.workerStatus[workerIndex] = true;
+                    aliveWorkers.push(i);
+                }
+            } catch(err) {
+                this.workerStatus[workerIndex] = false;
+            }
+        }
+        console.log(`Alive workers: ${aliveWorkers.toString()}`);
     }
 
     async #deleteOldRequests() {
@@ -178,14 +207,23 @@ export default class Manager {
     async #fetchProgress() {
         let current = 0;
 
+        const progressEndpoint = "/internal/api/worker/hash/crack/progress";
         for (let i = 1; i <= this.workersCount; i++) {
-            const url = this.#getWorkerUrl(i);
-            const res = await fetch(`${url}/internal/api/worker/hash/crack/progress`);
-            if (!res.ok) {
+            const workerIndex = i - 1;
+            if (!this.workerStatus[workerIndex]) {
                 continue;
             }
-            const body = await res.json();
-            current += body.processed;
+            const url = this.#getWorkerUrl(i);
+            try {
+                const res = await fetch(`${url}${progressEndpoint}`);
+                if (!res.ok) {
+                    continue;
+                }
+                const body = await res.json();
+                current += body.processed;
+            } catch(err) {
+                this.workerStatus[workerIndex] = false;
+            }
         }
      
         const total = this.state.total;

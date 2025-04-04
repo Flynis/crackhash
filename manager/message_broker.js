@@ -40,7 +40,6 @@ export default class MessageBroker {
             queueOptions: {
                 durable: true,
                 autoDelete: false,
-                durable: true,
                 exclusive: false
             },
             qos: {prefetchCount: 1},
