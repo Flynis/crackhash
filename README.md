@@ -2,6 +2,8 @@
 
 Распределенная система для взлома MD-5 хэша.
 
+![Архитектура системы](/assets/arch.png)
+
 ## API
 
 Интрефейс системы описан в файле `manager/api.yaml`.
@@ -17,10 +19,12 @@ curl --location 'localhost:8000/api/hash/crack' \
 }'
 ```
 
+В ответ получим ID, который сможем использовать для отслеживая прогресса выполнения запроса.
+
 Пример запроса статуса взлома:
 
 ```bash
-curl --location 'localhost:8000/api/hash/status?requestId=8691c7fe-322c-4997-9b59-aed464585886'
+curl --location 'localhost:8000/api/hash/status?requestId=YOUR_REQUEST_ID'
 ```
 
 ## Сборка и запуск
