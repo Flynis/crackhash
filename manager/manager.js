@@ -56,7 +56,7 @@ export default class Manager {
             this.#healthCheck();
         }, healthCheckPeriod);
 
-        console.log("Manager initialized ", this.state);
+        console.log("Manager initialized ");
 
         
         if (this.state.completed) {
@@ -159,7 +159,7 @@ export default class Manager {
 
     async #updateRequestData(result) {
         const req = this.requests.get(result.requestId);
-        if (!req) {
+        if (!req || req.completed()) {
             return;
         }
 

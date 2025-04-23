@@ -69,8 +69,10 @@ export default class WorkerService {
             }],
         }, async (msg) => {
             console.log('Received task');
-            await this.controller.processTask(msg.body);
-            console.log("Task completed");
+            if (!this.controller.isCompleted(msg.body)) {
+                await this.controller.processTask(msg.body);
+                console.log("Task completed");
+            }
         });
         this.taskConsumer.on('error', (err) => {
             console.log('Task consumer error', err);
@@ -82,7 +84,7 @@ export default class WorkerService {
             res.send(progress);
         });
         this.app.get("/internal/api/worker/health", (_, res) => {
-            console.log("Health check");
+            //console.log("Health check");
             res.sendStatus(200);
         });
     }

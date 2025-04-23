@@ -54,9 +54,21 @@ export default class WorkerControler {
     }
 
     #printProgress() {
+        if (this.currentTask.count == 0) {
+            return;
+        }
         const progress = this.taskProgress.current;
+        if (this.currentTask.count == progress) {
+            console.log("Waiting for task");
+            return;
+        }
         const percent = Math.floor((progress / this.currentTask.count) * 100);
         console.log(`Progress ${progress}/${this.currentTask.count} ${percent}%`);
+    }
+
+    isCompleted(task) {
+        return task.requestId == this.currentTask.requestId &&
+            task.taskId == this.currentTask.taskId;
     }
 
     async processTask(task) {
